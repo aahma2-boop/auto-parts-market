@@ -2,66 +2,79 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Auto Parts Market</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="North America auto parts marketplace - Buy and sell used car parts across Canada and the US">
+  <meta name="theme-color" content="#2563eb">
+  <title>Auto Parts Market — Buy/Sell Auto Parts Canada & USA</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
   <div id="app">
     <header class="header">
       <div class="logo">
-        AutoParts
+        🏎️ AutoParts
         <div class="logo-sub">North America marketplace</div>
       </div>
       <div class="header-actions">
-        <button class="hbtn primary" id="loginBtn">Login</button>
-        <button class="hbtn" id="registerBtn">Register</button>
+        <button class="hbtn" id="loginBtn">Login</button>
+        <button class="hbtn primary" id="registerBtn">Get Started</button>
       </div>
     </header>
 
     <section class="hero-strip">
       <div>
-        <div class="hero-title">Find rust‑free, winter‑ready parts across Canada & the US</div>
+        <div class="hero-title">🔧 Find Quality Auto Parts Across North America</div>
         <div class="hero-desc">
-          Browse cross‑border listings with duty estimates, CAD→USD conversion, and seller locations.
+          Browse thousands of listings with instant duty estimates, live currency conversion, and verified seller locations from coast to coast.
         </div>
       </div>
       <div class="hero-stats">
-        <div><b id="statListings">0</b><br>Listings</div>
-        <div><b id="statSellers">0</b><br>Sellers</div>
+        <div>
+          <b id="statListings">0</b>
+          Active Listings
+        </div>
+        <div>
+          <b id="statSellers">0</b>
+          Trusted Sellers
+        </div>
       </div>
     </section>
 
     <div class="search-bar">
       <div class="search-box">
         <span class="search-icon">🔍</span>
-        <input id="searchInput" placeholder="Search brake pads, alternators, winter tires...">
+        <input 
+          id="searchInput" 
+          type="search"
+          placeholder="Search brake pads, tires, alternators, transmissions..."
+          aria-label="Search auto parts"
+        >
       </div>
-      <select id="sortSelect" class="sort-select">
-        <option value="newest">Newest</option>
+      <select id="sortSelect" class="sort-select" aria-label="Sort listings">
+        <option value="newest">Newest First</option>
         <option value="price_low">Price: Low → High</option>
         <option value="price_high">Price: High → Low</option>
       </select>
     </div>
 
-    <main class="main-layout">
-      <aside class="sidebar">
+    <main class="main-layout" role="main">
+      <aside class="sidebar" role="navigation">
         <div class="sidebar-section">
-          <div class="sidebar-title">Categories</div>
-          <ul class="category-list" id="categoryList"></ul>
+          <h2 class="sidebar-title">📁 Categories</h2>
+          <ul class="category-list" id="categoryList" role="list"></ul>
         </div>
       </aside>
 
       <section class="content">
         <div class="toolbar">
-          <div class="results-count" id="resultsCount">Loading listings...</div>
+          <h1 class="results-count" id="resultsCount">Loading listings...</h1>
         </div>
-        <div class="product-grid" id="productGrid"></div>
+        <div class="product-grid" id="productGrid" role="grid"></div>
       </section>
     </main>
   </div>
 
-  <div class="toast" id="toast"></div>
+  <div class="toast" id="toast" role="alert" aria-live="polite"></div>
 
   <script src="/app.js"></script>
 </body>
