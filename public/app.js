@@ -1,102 +1,70 @@
-const api = {
-  async listings() {
-    const res = await fetch('/api/listings');
-    if (!res.ok) throw new Error('Failed to load listings');
-    return res.json();
-  }
-};
+document.addEventListener('DOMContentLoaded', () => {
+  const addItemForm = document.getElementById('add-item-form');
+  const loadDashboardBtn = document.getElementById('load-dashboard-btn');
 
-const state = {
-  listings: [],
-  filtered: [],
-  categories: new Map()
-};
+  // Handle supplier adding a new item
+  if (addItemForm) {
+    addItemForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const title = document.getElementById('item-title').value;
+      const price = parseFloat(document.getElementById('item-price').value);
 
-function toast(msg) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 2500);
-}
-
-function buildCategories() {
-  state.categories.clear();
-  for (const l of state.listings) {
-    state.categories.set(l.category, (state.categories.get(l.category) || 0) + 1);
-  }
-}
-
-function renderCategories() {
-  const ul = document.getElementById('categoryList');
-  ul.innerHTML = '';
-  for (const [cat, count] of state.categories.entries()) {
-    const li = document.createElement('li');
-    li.className = 'category-item';
-    li.innerHTML = `
-      <span>${cat}</span>
-      <span class="category-count">${count}</span>
-    `;
-    li.onclick = () => {
-      state.filtered = state.listings.filter(l => l.category === cat);
-      renderListings();
-    };
-    ul.appendChild(li);
-  }
-}
-
-function renderListings() {
-  const grid = document.getElementById('productGrid');
-  const list = state.filtered.length ? state.filtered : state.listings;
-
-  document.getElementById('resultsCount').textContent =
-    list.length ? `${list.length} listings` : 'No listings found';
-
-  if (!list.length) {
-    grid.innerHTML = `<div class="empty-state">No parts found. Try a different search.</div>`;
-    return;
+      try {
+        const response = await fetch('/api/add-item', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ title, price })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          alert('Item listed successfully! ID: ' + data.itemId);
+          addItemForm.reset();
+        } else {
+          alert('Error: ' + data.error);
+        }
+      } catch (error) {
+        console.error('Submission failed:', error);
+      }
+    });
   }
 
-  grid.innerHTML = '';
-  for (const l of list) {
-    const card = document.createElement('div');
-    card.className = 'product-card' + (l.sold ? ' sold' : '');
-    card.innerHTML = `
-      <div class="product-image">
-        <span>${l.category}</span>
-        ${l.image ? `<img src="/uploads/${l.image}" alt="">` : ''}
-        ${l.sold ? `<div class="sold-stamp">SOLD</div>` : ''}
-      </div>
-      <div class="product-info">
-        <div class="product-name">${l.title}</div>
-        <div class="product-meta">${l.fitment || 'Universal fit'}</div>
-        <div class="seller-row">${l.city || ''}, ${l.region || ''} · ${l.country}</div>
-        <div class="product-footer">
-          <div>
-            <div class="product-price">${l.price} ${l.currency}</div>
-          </div>
-          <div class="list-date">Listed: ${new Date(l.created_at).toLocaleDateString()}</div>
-        </div>
-      </div>
-    `;
-    grid.appendChild(card);
+  // Handle loading the supplier dashboard
+  if (loadDashboardBtn) {
+    loadDashboardBtn.addEventListener('click', loadSupplierDashboard);
   }
-}
+});
 
-async function init() {
+// Fetch and render the 85/15 split earnings for the supplier
+async function loadSupplierDashboard() {
+  const container = document.getElementById('earnings-container');
+  if (!container) return;
+
+  container.innerHTML = '<p>Loading earnings...</p>';
+
   try {
-    const listings = await api.listings();
-    state.listings = listings;
-    state.filtered = [];
-    buildCategories();
-    renderCategories();
-    renderListings();
-    document.getElementById('statListings').textContent = listings.length;
-    const sellers = new Set(listings.map(l => l.user_id));
-    document.getElementById('statSellers').textContent = sellers.size;
-  } catch (e) {
-    console.error(e);
-    toast('Failed to load listings');
+    const response = await fetch('/api/supplier/earnings');
+    if (!response.ok) {
+      throw new Error('Failed to fetch earnings. Ensure you are logged in.');
+    }
+    
+    const data = await response.json();
+    
+    container.innerHTML = `
+      <h3>Supplier Dashboard</h3>
+      <div class="dashboard-stats">
+        <p>Total Gross Sales: <strong>$${data.totalSales.toFixed(2)}</strong></p>
+        <p style="color: red;">Marketplace Fee (15%): <strong>-$${data.totalFee.toFixed(2)}</strong></p>
+        <hr>
+        <p style="color: green; font-size: 1.2em;"><strong>Your Net Payout (85%): $${data.netPayout.toFixed(2)}</strong></p>
+      </div>
+    `;
+  } catch (error) {
+    console.error('Dashboard Error:', error);
+    container.innerHTML = `<p style="color: red;">${error.message}</p>`;
   }
 }
-
-document.addEventListener('DOMContentLoaded', init);
