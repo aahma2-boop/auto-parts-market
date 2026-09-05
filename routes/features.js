@@ -1,101 +1,65 @@
 const express = require('express');
-const db = require('../db');
-const auth = require('./auth');
-
 const router = express.Router();
+const db = require('../db');
 
-// Messaging endpoints
-router.post('/messages/:recipient_id', auth.requireAuth, (req, res) => {
-  const { recipient_id } = req.params;
-  const { body, listing_id } = req.body;
-  const sender_id = req.user.id;
+// Middleware to ensure the user is logged in as a supplier
+const requireSupplierAuth = (req, res, next) => {
+  // Assuming express-session is used and sets req.session.userId
+  if (!req.session || !req.session.userId) {
+    return res.status(401).json({ error: 'Unauthorized. Supplier must be logged in.' });
+  }
+  next();
+};
 
-  if (!body || !recipient_id) {
-    return res.status(400).json({ error: 'Missing fields' });
+// Route to add a new auto part listing
+router.post('/add-item', requireSupplierAuth, (req, res) => {
+  const { title, price } = req.body;
+  const supplierId = req.session.userId; 
+
+  if (!title || !price) {
+    return res.status(400).json({ error: 'Title and price are required.' });
   }
 
-  const result = db.prepare(`
-    INSERT INTO messages (sender_id, recipient_id, listing_id, body, created_at)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(sender_id, recipient_id, listing_id || null, body, Date.now());
-
-  res.json({ ok: true, id: result.lastInsertRowid });
+  db.run(
+    `INSERT INTO items (title, price, supplier_id) VALUES (?, ?, ?)`,
+    [title, price, supplierId],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ message: 'Item listed successfully', itemId: this.lastID });
+    }
+  );
 });
 
-router.get('/messages', auth.requireAuth, (req, res) => {
-  const userId = req.user.id;
-  const messages = db.prepare(`
-    SELECT * FROM messages
-    WHERE recipient_id = ? OR sender_id = ?
-    ORDER BY created_at DESC
-  `).all(userId, userId);
-  res.json(messages);
+// Route to get supplier earnings and calculate 15% deductions totals
+router.get('/supplier/earnings', requireSupplierAuth, (req, res) => {
+  const supplierId = req.session.userId;
+  
+  db.get(
+    `SELECT 
+       SUM(total_amount) as totalSales, 
+       SUM(platform_fee) as totalFee, 
+       SUM(supplier_payout) as netPayout 
+     FROM transactions 
+     WHERE supplier_id = ?`,
+    [supplierId],
+    (err, row) => {
+      if (err) return res.status(500).json({ error: err.message });
+      
+      res.json({
+        totalSales: row.totalSales || 0,
+        totalFee: row.totalFee || 0,
+        netPayout: row.netPayout || 0
+      });
+    }
+  );
 });
 
-router.post('/messages/:id/read', auth.requireAuth, (req, res) => {
-  const { id } = req.params;
-  db.prepare('UPDATE messages SET read = 1 WHERE id = ? AND recipient_id = ?')
-    .run(id, req.user.id);
-  res.json({ ok: true });
-});
-
-// Saved items endpoints
-router.post('/saved/:listing_id', auth.requireAuth, (req, res) => {
-  const { listing_id } = req.params;
-  const user_id = req.user.id;
-
-  try {
-    db.prepare(`
-      INSERT INTO saved_items (user_id, listing_id, created_at)
-      VALUES (?, ?, ?)
-    `).run(user_id, listing_id, Date.now());
-    res.json({ ok: true });
-  } catch (e) {
-    res.status(400).json({ error: 'Already saved' });
-  }
-});
-
-router.delete('/saved/:listing_id', auth.requireAuth, (req, res) => {
-  const { listing_id } = req.params;
-  db.prepare('DELETE FROM saved_items WHERE user_id = ? AND listing_id = ?')
-    .run(req.user.id, listing_id);
-  res.json({ ok: true });
-});
-
-router.get('/saved', auth.requireAuth, (req, res) => {
-  const saved = db.prepare(`
-    SELECT l.* FROM listings l
-    INNER JOIN saved_items s ON l.id = s.listing_id
-    WHERE s.user_id = ?
-    ORDER BY s.created_at DESC
-  `).all(req.user.id);
-  res.json(saved);
-});
-
-// Ratings endpoints
-router.post('/ratings', auth.requireAuth, (req, res) => {
-  const { seller_id, order_id, rating, comment } = req.body;
-  const buyer_id = req.user.id;
-
-  if (!seller_id || !order_id || !rating || rating < 1 || rating > 5) {
-    return res.status(400).json({ error: 'Invalid rating' });
-  }
-
-  const result = db.prepare(`
-    INSERT INTO ratings (buyer_id, seller_id, order_id, rating, comment, created_at)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).run(buyer_id, seller_id, order_id, rating, comment || null, Date.now());
-
-  res.json({ ok: true, id: result.lastInsertRowid });
-});
-
-router.get('/ratings/seller/:seller_id', (req, res) => {
-  const { seller_id } = req.params;
-  const ratings = db.prepare(`
-    SELECT AVG(rating) as avg_rating, COUNT(*) as count
-    FROM ratings WHERE seller_id = ?
-  `).get(seller_id);
-  res.json(ratings);
+// Route to fetch all items for the public marketplace
+router.get('/items', (req, res) => {
+  db.all(`SELECT id, title, price, supplier_id FROM items`, [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ items: rows });
+  });
 });
 
 module.exports = router;
